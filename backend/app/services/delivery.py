@@ -6,8 +6,6 @@ from email.mime.text import MIMEText
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
-
-import httpx
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -63,8 +61,8 @@ async def _send_email(
     excerpt: str,
     site_name: str = "AI Research Agent",
 ) -> bool:
-    if not settings.smtp_host or not settings.email_from:
-        logger.warning("email skipped: SMTP_HOST or EMAIL_FROM not set")
+    if not settings.email_from:
+        logger.warning("email skipped: EMAIL_FROM not set")
         return False
 
     template = _env.get_template("email.html")
@@ -79,8 +77,14 @@ async def _send_email(
         download_url=download_url,
     )
 
+    subject = f'Your research on "{project.topic_prompt}" is ready'
+
+    if not settings.smtp_host:
+        logger.warning("email failed: no SMTP fallback configured")
+        return False
+
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = f'Your research on "{project.topic_prompt}" is ready'
+    msg["Subject"] = subject
     msg["From"] = settings.email_from
     msg["To"] = user.email
     msg.attach(MIMEText(html, "html"))
@@ -91,7 +95,7 @@ async def _send_email(
             if settings.smtp_user:
                 server.login(settings.smtp_user, settings.smtp_pass)
             server.sendmail(settings.email_from, [user.email], msg.as_string())
-        logger.info("email sent to %s for project %s", user.email, project.id)
+        logger.info("email sent via SMTP to %s", user.email)
         return True
     except Exception as exc:
         logger.warning("email failed to %s: %s", user.email, exc)
