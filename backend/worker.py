@@ -3,6 +3,7 @@ import logging
 
 from app.db import AsyncSessionLocal
 from app.pipeline import run_research_pipeline
+from app.services.telegram_poll import poll_telegram_links
 from app.queue import (
     fetch_next_job,
     mark_job_done,
@@ -35,6 +36,8 @@ async def worker_loop() -> None:
                     requeued = await requeue_stuck_jobs(db)
                     if requeued:
                         logger.warning("Requeued %d stuck job(s)", requeued)
+            if idle_iterations % 5 == 0:
+                await poll_telegram_links(AsyncSessionLocal)
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
             continue
 

@@ -10,35 +10,8 @@ USER_AGENT = "ResearchPlatformBot/1.0"
 
 
 async def web_search(query: str, num: int = 6) -> list[dict]:
-    """Search the web via Google Custom Search (falls back to empty list)."""
-    if not settings.image_search_api_key or not settings.image_search_cx:
-        return []
-    params = {
-        "key": settings.image_search_api_key,
-        "cx": settings.image_search_cx,
-        "q": query,
-        "num": min(num, 10),
-    }
-    try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.get(
-                "https://www.googleapis.com/customsearch/v1", params=params
-            )
-            resp.raise_for_status()
-            data = resp.json()
-    except httpx.HTTPError as exc:
-        logger.warning("web_search failed: %s", exc)
-        return []
-    results = []
-    for item in data.get("items", []):
-        results.append(
-            {
-                "title": item.get("title"),
-                "url": item.get("link"),
-                "snippet": item.get("snippet"),
-            }
-        )
-    return results
+    """Web search — currently unused (no search provider configured)."""
+    return []
 
 
 async def web_fetch(url: str, max_chars: int = 8000) -> str:

@@ -58,8 +58,6 @@ class Settings(BaseSettings):
     site_name: str = "AI Research Agent"
 
     # External search APIs
-    image_search_api_key: str = ""
-    image_search_cx: str = ""
     unsplash_access_key: str = ""
     youtube_api_key: str = ""
 

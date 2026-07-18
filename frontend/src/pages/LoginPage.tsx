@@ -1,6 +1,8 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../useAuth";
 
+const API_URL = import.meta.env.VITE_API_URL || "";
+
 export default function LoginPage() {
   const { isAuthenticated, isLoading } = useAuth();
   if (isLoading) return null;
@@ -14,7 +16,7 @@ export default function LoginPage() {
           Turn any topic into a researched dashboard.
         </p>
         <a
-          href="/auth/google/login"
+          href={`${API_URL}/auth/google/login`}
           className="inline-flex items-center justify-center gap-2 w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700"
         >
           Continue with Google

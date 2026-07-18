@@ -1,8 +1,11 @@
+import logging
 import smtplib
 from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 import httpx
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -61,6 +64,7 @@ async def _send_email(
     site_name: str = "AI Research Agent",
 ) -> bool:
     if not settings.smtp_host or not settings.email_from:
+        logger.warning("email skipped: SMTP_HOST or EMAIL_FROM not set")
         return False
 
     template = _env.get_template("email.html")
@@ -82,13 +86,15 @@ async def _send_email(
     msg.attach(MIMEText(html, "html"))
 
     try:
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30) as server:
             server.starttls()
             if settings.smtp_user:
                 server.login(settings.smtp_user, settings.smtp_pass)
             server.sendmail(settings.email_from, [user.email], msg.as_string())
+        logger.info("email sent to %s for project %s", user.email, project.id)
         return True
-    except Exception:
+    except Exception as exc:
+        logger.warning("email failed to %s: %s", user.email, exc)
         return False
 
 
@@ -100,6 +106,7 @@ async def _send_telegram(
     excerpt: str,
 ) -> bool:
     if not settings.telegram_bot_token:
+        logger.warning("telegram skipped: bot token not set")
         return False
 
     text = (
@@ -122,6 +129,12 @@ async def _send_telegram(
                     "disable_web_page_preview": False,
                 },
             )
-            return resp.status_code == 200
-    except httpx.HTTPError:
+            ok = resp.status_code == 200
+            if ok:
+                logger.info("telegram sent to chat %s", user.telegram_chat_id)
+            else:
+                logger.warning("telegram send failed: %s %s", resp.status_code, resp.text[:200])
+            return ok
+    except httpx.HTTPError as exc:
+        logger.warning("telegram send error: %s", exc)
         return False
