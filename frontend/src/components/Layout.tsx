@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { logout, fetchIntegrationStatus } from "../api";
@@ -20,6 +21,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const qc = useQueryClient();
   const { theme, toggleTheme } = useUIStore();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const { data: integration } = useQuery({
     queryKey: ["integration-status"],
@@ -28,9 +30,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   });
 
   const handleLogout = async () => {
-    await logout();
-    qc.clear();
-    navigate("/login");
+    try {
+      await logout();
+    } catch (err) {
+      console.error("Logout backend request failed, clearing local session anyway:", err);
+    } finally {
+      qc.setQueryData(["me"], null);
+      qc.clear();
+      navigate("/login");
+    }
   };
 
   const isDashboardActive = location.pathname === "/dashboard" || location.pathname.startsWith("/projects");
@@ -40,7 +48,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-base-200 text-base-content flex flex-col transition-colors duration-300 pb-16 md:pb-0">
       
       {/* Navbar Header */}
-      <header className="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 sm:px-6 lg:px-8">
+      <header className="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         <div className="flex-1 flex items-center gap-3">
           <Link to="/dashboard" className="flex items-center gap-2 font-black text-xl tracking-tight text-base-content hover:opacity-90">
             <div className="p-2 bg-primary/10 text-primary rounded-xl">
@@ -67,7 +75,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           )}
         </div>
 
-        <div className="flex-none gap-4">
+        {/* Right Nav Menu - Flex Container */}
+        <div className="flex-none flex items-center gap-2 sm:gap-4">
           <nav className="flex items-center gap-1 sm:gap-2">
             <Link 
               to="/dashboard" 
@@ -99,9 +108,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
           </button>
 
-          {/* User Profile & Logout */}
-          <div className="dropdown dropdown-end">
-            <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar placeholder">
+          {/* User Profile & Logout Dropdown */}
+          <div className={`dropdown dropdown-end ${dropdownOpen ? "dropdown-open" : ""}`}>
+            <div 
+              role="button" 
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              onBlur={() => setTimeout(() => setDropdownOpen(false), 200)}
+              className="btn btn-ghost btn-circle avatar placeholder"
+            >
               {user?.avatar_url ? (
                 <div className="w-9 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
                   <img src={user.avatar_url} alt={user.name} />
@@ -112,23 +126,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </div>
               )}
             </div>
-            <ul tabIndex={0} className="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52 border border-base-200">
-              <li className="menu-title px-4 py-2 text-xs font-semibold uppercase tracking-wider text-base-content/40">
-                Logged in as <br />
-                <span className="font-bold text-base-content normal-case break-all">{user?.email}</span>
-              </li>
-              <div className="divider my-0"></div>
-              <li>
-                <Link to="/settings" className="py-2.5 font-medium">
-                  <Settings className="w-4 h-4" /> Settings
-                </Link>
-              </li>
-              <li>
-                <button onClick={handleLogout} className="py-2.5 text-error font-medium hover:bg-error/10">
-                  <LogOut className="w-4 h-4" /> Logout
-                </button>
-              </li>
-            </ul>
+            
+            {dropdownOpen && (
+              <ul className="menu menu-sm dropdown-content mt-3 z-[40] p-2 shadow bg-base-100 rounded-box w-52 border border-base-200 absolute right-0">
+                <li className="menu-title px-4 py-2 text-xs font-semibold uppercase tracking-wider text-base-content/40">
+                  Logged in as <br />
+                  <span className="font-bold text-base-content normal-case break-all">{user?.email}</span>
+                </li>
+                <div className="divider my-0"></div>
+                <li>
+                  <Link to="/settings" onClick={() => setDropdownOpen(false)} className="py-2.5 font-medium">
+                    <Settings className="w-4 h-4" /> Settings
+                  </Link>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => { setDropdownOpen(false); handleLogout(); }} 
+                    className="py-2.5 text-error font-medium hover:bg-error/10 flex items-center gap-2"
+                  >
+                    <LogOut className="w-4 h-4" /> Logout
+                  </button>
+                </li>
+              </ul>
+            )}
           </div>
         </div>
       </header>
