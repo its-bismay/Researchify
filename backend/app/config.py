@@ -43,12 +43,14 @@ class Settings(BaseSettings):
     aws_region: str = "ap-south-1"
     s3_bucket: str = "research-platform-files"
 
-    # Email (SMTP)
+    # Email (SMTP, SendGrid, Brevo)
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""
     smtp_pass: str = ""
     email_from: str = ""
+    sendgrid_api_key: str = ""
+    brevo_api_key: str = ""
 
     # Telegram
     telegram_bot_token: str = ""
