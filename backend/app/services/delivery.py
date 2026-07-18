@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
+import httpx
 
 logger = logging.getLogger(__name__)
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -40,14 +41,20 @@ async def deliver_report(
     dashboard_url = f"{settings.frontend_url}/projects/{project.id}"
     excerpt = (report.summary_markdown or "")[:400]
 
-    sent_email = await _send_email(user, project, state, dashboard_url, download_url, excerpt, settings.site_name)
-    if sent_email:
-        report.sent_email_at = datetime.now(timezone.utc)
+    try:
+        sent_email = await _send_email(user, project, state, dashboard_url, download_url, excerpt, settings.site_name)
+        if sent_email:
+            report.sent_email_at = datetime.now(timezone.utc)
+    except Exception as e:
+        logger.error("Failed sending email notification: %s", e, exc_info=True)
 
     if user.telegram_chat_id:
-        sent_tg = await _send_telegram(user, project, dashboard_url, download_url, excerpt)
-        if sent_tg:
-            report.sent_telegram_at = datetime.now(timezone.utc)
+        try:
+            sent_tg = await _send_telegram(user, project, dashboard_url, download_url, excerpt)
+            if sent_tg:
+                report.sent_telegram_at = datetime.now(timezone.utc)
+        except Exception as e:
+            logger.error("Failed sending Telegram notification: %s", e, exc_info=True)
 
     await db.commit()
 
@@ -139,6 +146,6 @@ async def _send_telegram(
             else:
                 logger.warning("telegram send failed: %s %s", resp.status_code, resp.text[:200])
             return ok
-    except httpx.HTTPError as exc:
-        logger.warning("telegram send error: %s", exc)
+    except Exception as exc:
+        logger.error("telegram send error: %s", exc, exc_info=True)
         return False
