@@ -105,5 +105,12 @@ def set_auth_cookies(response, user_id: uuid.UUID) -> None:
 
 
 def clear_auth_cookies(response) -> None:
-    response.delete_cookie(ACCESS_COOKIE, domain=settings.cookie_domain)
-    response.delete_cookie(REFRESH_COOKIE, domain=settings.cookie_domain)
+    secure = settings.cookie_secure
+    common = {
+        "httponly": True,
+        "secure": secure,
+        "samesite": "none" if secure else "lax",
+        "domain": settings.cookie_domain,
+    }
+    response.delete_cookie(ACCESS_COOKIE, **common)
+    response.delete_cookie(REFRESH_COOKIE, **common)
