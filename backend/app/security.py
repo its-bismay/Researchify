@@ -83,10 +83,11 @@ async def get_current_user(
 def set_auth_cookies(response, user_id: uuid.UUID) -> None:
     access = create_access_token(user_id)
     refresh = create_refresh_token(user_id)
+    secure = settings.cookie_secure
     common = {
         "httponly": True,
-        "secure": settings.cookie_secure,
-        "samesite": "lax",
+        "secure": secure,
+        "samesite": "none" if secure else "lax",
         "domain": settings.cookie_domain,
     }
     response.set_cookie(

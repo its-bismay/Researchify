@@ -89,7 +89,7 @@ app.add_middleware(
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.jwt_secret,
-    same_site="lax",
+    same_site="none" if settings.cookie_secure else "lax",
     https_only=settings.cookie_secure,
 )
 

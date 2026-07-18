@@ -92,7 +92,7 @@ async def refresh(request: Request):
         access,
         httponly=True,
         secure=settings.cookie_secure,
-        samesite="lax",
+        samesite="none" if settings.cookie_secure else "lax",
         domain=settings.cookie_domain,
         max_age=settings.access_token_expire_minutes * 60,
     )
