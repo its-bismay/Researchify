@@ -1,10 +1,8 @@
 import logging
-import smtplib
 from datetime import datetime, timezone
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from pathlib import Path
 import httpx
+
 
 logger = logging.getLogger(__name__)
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -68,10 +66,6 @@ async def _send_email(
     excerpt: str,
     site_name: str = "AI Research Agent",
 ) -> bool:
-    if not settings.email_from:
-        logger.warning("email skipped: EMAIL_FROM not set")
-        return False
-
     template = _env.get_template("email.html")
     html = template.render(
         site_name=site_name,
@@ -85,89 +79,32 @@ async def _send_email(
     )
 
     subject = f'Your research on "{project.topic_prompt}" is ready'
+    text_content = f"Your research on \"{project.topic_prompt}\" is ready.\n\n{excerpt}\n\nView full dashboard: {dashboard_url}"
+    if download_url:
+        text_content += f"\nDownload report: {download_url}"
 
-    # Try sending via Brevo HTTP API if configured
-    if settings.brevo_api_key:
-        logger.info("attempting to send email via Brevo API to %s", user.email)
-        try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(
-                    "https://api.brevo.com/v3/smtp/email",
-                    headers={
-                        "api-key": settings.brevo_api_key,
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "sender": {"email": settings.email_from or "noreply@researchify.dev", "name": settings.site_name},
-                        "to": [{"email": user.email}],
-                        "subject": subject,
-                        "htmlContent": html,
-                    },
-                )
-                if resp.status_code in (200, 201, 202):
-                    logger.info("email sent via Brevo to %s", user.email)
-                    return True
-                else:
-                    logger.warning("Brevo send failed: %s %s. Falling back to SMTP or SendGrid if configured.", resp.status_code, resp.text[:200])
-        except Exception as exc:
-            logger.error("Brevo API send error: %s. Falling back to SMTP or SendGrid if configured.", exc, exc_info=True)
-
-    # Try sending via SendGrid HTTP API if configured
-    if settings.sendgrid_api_key:
-        logger.info("attempting to send email via SendGrid API to %s", user.email)
-        try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(
-                    "https://api.sendgrid.com/v3/mail/send",
-                    headers={
-                        "Authorization": f"Bearer {settings.sendgrid_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "personalizations": [
-                            {
-                                "to": [{"email": user.email}],
-                                "subject": subject
-                            }
-                        ],
-                        "from": {"email": settings.email_from or "noreply@researchify.dev"},
-                        "content": [
-                            {
-                                "type": "text/html",
-                                "value": html
-                            }
-                        ]
-                    },
-                )
-                if resp.status_code in (200, 201, 202):
-                    logger.info("email sent via SendGrid to %s", user.email)
-                    return True
-                else:
-                    logger.warning("SendGrid send failed: %s %s. Falling back to SMTP if configured.", resp.status_code, resp.text[:200])
-        except Exception as exc:
-            logger.error("SendGrid API send error: %s. Falling back to SMTP if configured.", exc, exc_info=True)
-
-    if not settings.smtp_host:
-        logger.warning("email failed: no SMTP fallback configured")
-        return False
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = settings.email_from or "noreply@researchify.dev"
-    msg["To"] = user.email
-    msg.attach(MIMEText(html, "html"))
-
+    logger.info("attempting to send email via custom hosted email service to %s", user.email)
     try:
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30) as server:
-            server.starttls()
-            if settings.smtp_user:
-                server.login(settings.smtp_user, settings.smtp_pass)
-            server.sendmail(settings.email_from or "noreply@researchify.dev", [user.email], msg.as_string())
-        logger.info("email sent via SMTP to %s", user.email)
-        return True
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                settings.email_service_url,
+                json={
+                    "recipient": user.email,
+                    "subject": subject,
+                    "text_content": text_content,
+                    "html_content": html,
+                },
+            )
+            if resp.status_code in (200, 201, 202):
+                logger.info("email sent successfully via custom service to %s", user.email)
+                return True
+            else:
+                logger.error("custom email service failed: %s %s", resp.status_code, resp.text[:200])
+                return False
     except Exception as exc:
-        logger.warning("email failed to %s: %s", user.email, exc)
+        logger.error("custom email service error: %s", exc, exc_info=True)
         return False
+
 
 
 async def _send_telegram(
