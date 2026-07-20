@@ -5,11 +5,11 @@ import Dashboard from "./pages/Dashboard";
 import ProjectPage from "./pages/ProjectPage";
 import SettingsPage from "./pages/SettingsPage";
 import Layout from "./components/Layout";
+import BackendLoadingScreen from "./components/BackendLoadingScreen";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
-  if (isLoading)
-    return <div className="p-10 text-center text-gray-500">Loading…</div>;
+  if (isLoading) return <BackendLoadingScreen message="Loading dashboard..." />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <Layout>{children}</Layout>;
 }

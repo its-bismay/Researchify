@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../useAuth";
 import { useUIStore } from "../useUIStore";
+import BackendLoadingScreen from "../components/BackendLoadingScreen";
 import { 
   Sparkles, 
   ArrowRight, 
@@ -26,14 +27,7 @@ export default function LoginPage() {
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-base-100">
-        <div className="flex flex-col items-center gap-4">
-          <span className="loading loading-ring loading-lg text-primary"></span>
-          <p className="text-sm font-medium animate-pulse text-base-content/70">Preparing Research Environment...</p>
-        </div>
-      </div>
-    );
+    return <BackendLoadingScreen message="Preparing Research Environment..." />;
   }
 
   if (isAuthenticated) {
